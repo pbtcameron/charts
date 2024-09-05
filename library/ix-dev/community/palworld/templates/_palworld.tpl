@@ -103,6 +103,7 @@ workload:
                 local value="${2}"
                 local quote="${3:-false}"
                 local print="${4:-true}"
+
                 # -- Escape special characters for sed
                 escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
                 if [ "$quote" = true ]; then
@@ -110,11 +111,21 @@ workload:
                 fi
 
                 echo "Setting ${key}..."
-                sed -i "s|\(${key}=\)[^,]*|\1${escaped_value}|g" "${cfgFile}"
+
+                 if grep -q "^OptionSettings=\(.*${key}=.*\)$" "${cfgFile}"; then
+                    # Key exists, update its value using the original logic
+                    sed -i "s|\(${key}=\)[^,]*|\1${escaped_value}|g" "${cfgFile}"
+                 else
+                    # Key doesn't exist, append it right after "OptionSettings=("
+                     sed -i "s|^\(OptionSettings=(\)|\1${key}=${escaped_value}, |" "${cfgFile}"
+                 fi
+
+                
                 if [ "$print" = true ]; then
                   echo "Set to $(grep -Po "(?<=${key}=)[^,]*" "${cfgFile}")"
                 fi
               }
+
 
               set_ini_value "RCONEnabled" True
               set_ini_value "RCONPort" {{ .Values.palworldNetwork.rconPort }}
